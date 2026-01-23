@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RAM Monitor + Security</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: #e0e0e0;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container { max-width: 1400px; margin: 0 auto; }
+        h1 {
+            text-align: center;
+            margin-bottom: 20px;
+            color: #00d4ff;
+            font-size: 1.8em;
+        }
+        .status-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.8em;
+            margin-left: 10px;
+        }
+        .status-ok { background: #00c853; color: #fff; }
+        .status-warn { background: #ffab00; color: #000; }
+        .status-danger { background: #ff1744; color: #fff; }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        .card {
+            background: rgba(255,255,255,0.05);
+            border-radius: 12px;
+            padding: 20px;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        .card h2 {
+            font-size: 1em;
+            color: #888;
+            margin-bottom: 15px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        /* RAM/CPU Gauges */
+        .gauge-container { text-align: center; }
+        .gauge {
+            width: 150px;
+            height: 150px;
+            border-radius: 50%;
+            background: conic-gradient(
+                var(--color) var(--percent),
+                rgba(255,255,255,0.1) var(--percent)
+            );
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 10px;
+            position: relative;
+        }
+        .gauge::before {
+            content: '';
+            position: absolute;
+            width: 120px;
+            height: 120px;
+            background: #1a1a2e;
+            border-radius: 50%;
+        }
+        .gauge-value {
+            position: relative;
+            z-index: 1;
+            font-size: 2em;
+            font-weight: bold;
+        }
+        .gauge-label { color: #888; font-size: 0.9em; }
+
+        /* Browsers */
+        .browser-list { display: flex; flex-direction: column; gap: 10px; }
+        .browser-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 15px;
+            background: rgba(255,255,255,0.05);
+            border-radius: 8px;
+        }
+        .browser-name {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .browser-icon {
+            width: 24px;
+            height: 24px;
+            border-radius: 4px;
+        }
+        .browser-ram {
+            font-weight: bold;
+            font-size: 1.2em;
+        }
+        .browser-count { color: #888; font-size: 0.8em; }
+
+        /* Process Table */
+        .process-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.85em;
+        }
+        .process-table th {
+            text-align: left;
+            padding: 10px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            color: #888;
+            font-weight: normal;
+        }
+        .process-table td {
+            padding: 8px 10px;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+        }
+        .process-table tr:hover { background: rgba(255,255,255,0.03); }
+        .process-table tr.suspicious {
+            background: rgba(255,23,68,0.15);
+            border-left: 3px solid #ff1744;
+        }
+        .process-table tr.unknown {
+            background: rgba(255,171,0,0.1);
+        }
+        .process-name { font-weight: 500; }
+        .process-path {
+            color: #666;
+            font-size: 0.8em;
+            max-width: 200px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .tag {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.75em;
+            margin-left: 5px;
+        }
+        .tag-safe { background: #00c853; color: #fff; }
+        .tag-unknown { background: #ffab00; color: #000; }
+        .tag-suspicious { background: #ff1744; color: #fff; }
+
+        /* Alerts */
+        .alerts-list { max-height: 200px; overflow-y: auto; }
+        .alert-item {
+            padding: 10px;
+            margin-bottom: 8px;
+            border-radius: 6px;
+            font-size: 0.85em;
+        }
+        .alert-ram { background: rgba(255,171,0,0.2); border-left: 3px solid #ffab00; }
+        .alert-security { background: rgba(255,23,68,0.2); border-left: 3px solid #ff1744; }
+        .alert-time { color: #666; font-size: 0.8em; }
+
+        /* Chart */
+        .chart-container {
+            height: 100px;
+            position: relative;
+            margin-top: 10px;
+        }
+        .chart {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: flex-end;
+            gap: 2px;
+        }
+        .chart-bar {
+            flex: 1;
+            background: linear-gradient(to top, #00d4ff, #00ff88);
+            border-radius: 2px 2px 0 0;
+            min-width: 3px;
+            transition: height 0.3s ease;
+        }
+
+        /* Kill button */
+        .kill-btn {
+            background: #ff1744;
+            color: #fff;
+            border: none;
+            padding: 4px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.75em;
+        }
+        .kill-btn:hover { background: #d50000; }
+
+        /* Legend */
+        .legend {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 15px;
+            font-size: 0.85em;
+        }
+        .legend-item { display: flex; align-items: center; gap: 6px; }
+        .legend-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+
+        .no-alerts {
+            color: #00c853;
+            text-align: center;
+            padding: 30px;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        .live-dot {
+            width: 8px;
+            height: 8px;
+            background: #00c853;
+            border-radius: 50%;
+            display: inline-block;
+            animation: pulse 2s infinite;
+            margin-right: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>
+            <span class="live-dot"></span>
+            RAM Monitor + Security Watcher
+            <span id="statusBadge" class="status-badge status-ok">SECURE</span>
+        </h1>
+
+        <div class="grid">
+            <!-- RAM Gauge -->
+            <div class="card">
+                <h2>Memoire RAM</h2>
+                <div class="gauge-container">
+                    <div class="gauge" id="ramGauge" style="--percent: 0%; --color: #00c853;">
+                        <span class="gauge-value" id="ramPercent">0%</span>
+                    </div>
+                    <div class="gauge-label" id="ramLabel">0 MB / 0 MB</div>
+                </div>
+                <div class="chart-container">
+                    <div class="chart" id="ramChart"></div>
+                </div>
+            </div>
+
+            <!-- CPU Gauge -->
+            <div class="card">
+                <h2>CPU</h2>
+                <div class="gauge-container">
+                    <div class="gauge" id="cpuGauge" style="--percent: 0%; --color: #00d4ff;">
+                        <span class="gauge-value" id="cpuPercent">0%</span>
+                    </div>
+                    <div class="gauge-label" id="cpuLabel">-</div>
+                </div>
+                <div class="chart-container">
+                    <div class="chart" id="cpuChart"></div>
+                </div>
+            </div>
+
+            <!-- Browsers -->
+            <div class="card">
+                <h2>Navigateurs <span id="browserTotal" style="color:#00d4ff;font-weight:bold;"></span></h2>
+                <div class="browser-list" id="browserList">
+                    <div style="color:#666;text-align:center;padding:20px;">Aucun navigateur actif</div>
+                </div>
+            </div>
+
+            <!-- Alerts -->
+            <div class="card">
+                <h2>Alertes Securite</h2>
+                <div class="alerts-list" id="alertsList">
+                    <div class="no-alerts">Aucune alerte</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Processes -->
+        <div class="card">
+            <h2>Processus (Top 20)</h2>
+            <div class="legend">
+                <div class="legend-item"><div class="legend-dot" style="background:#00c853;"></div> Connu/Safe</div>
+                <div class="legend-item"><div class="legend-dot" style="background:#ffab00;"></div> Inconnu</div>
+                <div class="legend-item"><div class="legend-dot" style="background:#ff1744;"></div> Suspect</div>
+            </div>
+            <table class="process-table">
+                <thead>
+                    <tr>
+                        <th>Processus</th>
+                        <th>PID</th>
+                        <th>RAM</th>
+                        <th>CPU</th>
+                        <th>Status</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody id="processTable">
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        const browserIcons = {
+            brave: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="%23FB542B" d="M12 2L2 7v10l10 5 10-5V7z"/></svg>',
+            chrome: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><circle fill="%234285F4" cx="12" cy="12" r="10"/><circle fill="%23fff" cx="12" cy="12" r="4"/></svg>',
+            firefox: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><circle fill="%23FF6611" cx="12" cy="12" r="10"/></svg>',
+            msedge: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><circle fill="%230078D4" cx="12" cy="12" r="10"/></svg>',
+            opera: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><circle fill="%23FF1B2D" cx="12" cy="12" r="10"/></svg>'
+        };
+
+        function getGaugeColor(percent) {
+            if (percent < 60) return '#00c853';
+            if (percent < 80) return '#ffab00';
+            return '#ff1744';
+        }
+
+        function formatTime(timestamp) {
+            const date = new Date(timestamp);
+            return date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        }
+
+        function updateDashboard(data) {
+            if (data.error) {
+                console.error('Error:', data.error);
+                return;
+            }
+
+            // RAM Gauge
+            const ramPercent = data.ram.percent;
+            const ramColor = getGaugeColor(ramPercent);
+            document.getElementById('ramGauge').style.setProperty('--percent', ramPercent + '%');
+            document.getElementById('ramGauge').style.setProperty('--color', ramColor);
+            document.getElementById('ramPercent').textContent = ramPercent + '%';
+            document.getElementById('ramLabel').textContent = `${data.ram.usedMB.toLocaleString()} MB / ${data.ram.totalMB.toLocaleString()} MB`;
+
+            // CPU Gauge
+            const cpuPercent = data.cpu.percent;
+            const cpuColor = getGaugeColor(cpuPercent);
+            document.getElementById('cpuGauge').style.setProperty('--percent', cpuPercent + '%');
+            document.getElementById('cpuGauge').style.setProperty('--color', cpuColor);
+            document.getElementById('cpuPercent').textContent = cpuPercent + '%';
+            document.getElementById('cpuLabel').textContent = data.cpu.model;
+
+            // Charts
+            updateChart('ramChart', data.history.ram);
+            updateChart('cpuChart', data.history.cpu);
+
+            // Browsers
+            const browserList = document.getElementById('browserList');
+            const browsers = Object.entries(data.browsers);
+            document.getElementById('browserTotal').textContent = browsers.length > 0 ? `(Total: ${data.browserTotalMB} MB)` : '';
+
+            if (browsers.length === 0) {
+                browserList.innerHTML = '<div style="color:#666;text-align:center;padding:20px;">Aucun navigateur actif</div>';
+            } else {
+                browserList.innerHTML = browsers.map(([name, info]) => `
+                    <div class="browser-item">
+                        <div class="browser-name">
+                            <img src="${browserIcons[name] || ''}" class="browser-icon" alt="${name}">
+                            <span>${name.charAt(0).toUpperCase() + name.slice(1)}</span>
+                            <span class="browser-count">(${info.count} proc)</span>
+                        </div>
+                        <span class="browser-ram">${info.ramMB} MB</span>
+                    </div>
+                `).join('');
+            }
+
+            // Status Badge
+            const badge = document.getElementById('statusBadge');
+            if (data.suspicious.length > 0) {
+                badge.textContent = `${data.suspicious.length} SUSPECT${data.suspicious.length > 1 ? 'S' : ''}`;
+                badge.className = 'status-badge status-danger';
+            } else if (ramPercent > 85) {
+                badge.textContent = 'RAM CRITIQUE';
+                badge.className = 'status-badge status-warn';
+            } else {
+                badge.textContent = 'SECURE';
+                badge.className = 'status-badge status-ok';
+            }
+
+            // Alerts
+            const alertsList = document.getElementById('alertsList');
+            if (data.alerts.length === 0) {
+                alertsList.innerHTML = '<div class="no-alerts">Aucune alerte</div>';
+            } else {
+                alertsList.innerHTML = data.alerts.map(alert => `
+                    <div class="alert-item alert-${alert.type.toLowerCase()}">
+                        <strong>${alert.type}:</strong> ${alert.message}
+                        <div class="alert-time">${formatTime(alert.time)}</div>
+                    </div>
+                `).join('');
+            }
+
+            // Process Table
+            const processTable = document.getElementById('processTable');
+            processTable.innerHTML = data.processes.slice(0, 20).map(proc => {
+                let rowClass = '';
+                let tag = '';
+                if (proc.isSuspicious) {
+                    rowClass = 'suspicious';
+                    tag = '<span class="tag tag-suspicious">SUSPECT</span>';
+                } else if (!proc.isKnown) {
+                    rowClass = 'unknown';
+                    tag = '<span class="tag tag-unknown">INCONNU</span>';
+                } else {
+                    tag = '<span class="tag tag-safe">OK</span>';
+                }
+
+                return `
+                    <tr class="${rowClass}">
+                        <td>
+                            <div class="process-name">${proc.name}</div>
+                            <div class="process-path" title="${proc.path}">${proc.path || '-'}</div>
+                            ${proc.suspiciousReasons.length > 0 ? `<div style="color:#ff1744;font-size:0.75em;margin-top:4px;">${proc.suspiciousReasons.join(', ')}</div>` : ''}
+                        </td>
+                        <td>${proc.pid}</td>
+                        <td><strong>${proc.ramMB} MB</strong></td>
+                        <td>${proc.cpu}%</td>
+                        <td>${tag}</td>
+                        <td>
+                            ${proc.isSuspicious || !proc.isKnown ? `<button class="kill-btn" onclick="killProcess(${proc.pid}, '${proc.name}')">Terminer</button>` : ''}
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function updateChart(containerId, data) {
+            const container = document.getElementById(containerId);
+            const maxValue = Math.max(...data.map(d => d.value), 100);
+            container.innerHTML = data.map(d => {
+                const height = (d.value / maxValue) * 100;
+                return `<div class="chart-bar" style="height: ${height}%"></div>`;
+            }).join('');
+        }
+
+        async function killProcess(pid, name) {
+            if (!confirm(`Terminer le processus "${name}" (PID: ${pid}) ?`)) return;
+
+            try {
+                const res = await fetch(`/api/kill/${pid}`, { method: 'POST' });
+                const result = await res.json();
+                if (result.success) {
+                    alert(`Processus ${name} termine`);
+                } else {
+                    alert(`Erreur: ${result.error}`);
+                }
+            } catch (err) {
+                alert(`Erreur: ${err.message}`);
+            }
+        }
+
+        // WebSocket connection
+        function connect() {
+            const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const ws = new WebSocket(`${protocol}//${location.host}`);
+
+            ws.onopen = () => console.log('Connected to monitor');
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                updateDashboard(data);
+            };
+            ws.onclose = () => {
+                console.log('Disconnected, reconnecting...');
+                setTimeout(connect, 3000);
+            };
+            ws.onerror = (err) => console.error('WebSocket error:', err);
+        }
+
+        // Initial fetch then WebSocket
+        fetch('/api/stats')
+            .then(res => res.json())
+            .then(updateDashboard)
+            .catch(console.error);
+
+        connect();
+    </script>
+</body>
+</html>
