@@ -424,7 +424,8 @@
                     <tr class="${rowClass}">
                         <td>
                             <div class="process-name">${proc.name}</div>
-                            <div class="process-path" title="${proc.path}">${proc.path || '-'}</div>
+                            ${proc.description ? `<div style="color:#82aaff;font-size:0.78em;margin-top:2px;">📋 ${proc.description}</div>` : ''}
+                            <div class="process-path" title="${proc.path}">${proc.path || (proc.command ? proc.command.slice(0, 60) : '-')}</div>
                             ${proc.suspiciousReasons.length > 0 ? `<div style="color:#ff1744;font-size:0.75em;margin-top:4px;">${proc.suspiciousReasons.join(', ')}</div>` : ''}
                         </td>
                         <td>${proc.pid}</td>

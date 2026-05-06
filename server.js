@@ -85,6 +85,73 @@ async function learnCurrentProcesses() {
     }
 }
 
+// Descriptions lisibles par process
+const PROCESS_DESC = {
+    'svchost': 'Service Windows hôte (services système)',
+    'msmpeng': 'Windows Defender — scan antivirus temps réel',
+    'explorer': 'Explorateur Windows — bureau et fichiers',
+    'dwm': 'Desktop Window Manager — rendu visuel',
+    'lsass': 'Authentification Windows — mots de passe',
+    'csrss': 'Sous-système client/serveur Windows',
+    'wininit': 'Initialisation Windows au démarrage',
+    'services': 'Gestionnaire de services Windows',
+    'firefox': 'Navigateur Firefox',
+    'msedge': 'Navigateur Microsoft Edge',
+    'chrome': 'Navigateur Google Chrome',
+    'brave': 'Navigateur Brave',
+    'claude': 'Claude Code — assistant IA CLI',
+    'node': 'Node.js — runtime JavaScript',
+    'bun': 'Bun — runtime JavaScript rapide',
+    'python': 'Python — script/programme Python',
+    'pythonw': 'Python (sans console) — service Python',
+    'pm2': 'PM2 — gestionnaire de processus Node',
+    'ollama': 'Ollama — modèles IA locaux',
+    'tailscaled': 'Tailscale — VPN mesh sécurisé',
+    'kdrive': 'kDrive — sync cloud Infomaniak',
+    'onedrive': 'OneDrive — sync cloud Microsoft',
+    'nvcontainer': 'NVIDIA Container — services GPU',
+    'nvidia overlay': 'NVIDIA Overlay — overlay en jeu',
+    'discord': 'Discord — messagerie gaming',
+    'steam': 'Steam — plateforme de jeux',
+    'searchindexer': 'Windows Search — indexation fichiers',
+    'audiodg': 'Windows Audio Device Graph — son système',
+    'wrangler': 'Cloudflare Wrangler — déploiement Workers',
+    'cloudflared': 'Cloudflare Tunnel — tunnel réseau',
+    'runtimebroker': 'Runtime Broker — permissions apps Store',
+    'sihost': 'Shell Infrastructure Host — interface utilisateur',
+    'taskhostw': 'Task Host — exécution tâches planifiées',
+    'adblock360svc': 'AdBlock360 — service blocage publicités',
+    'reticulum phantom': 'Reticulum Phantom — réseau P2P chiffré',
+    'rnsd': 'Reticulum Network Stack — daemon réseau mesh',
+    'sysinfocap': 'SysInfo Capture — monitoring système',
+    'googledrivesyncer': 'Google Drive — synchronisation cloud',
+    'googledrivefs': 'Google Drive File Stream — accès fichiers cloud',
+    'proton': 'Proton Drive — sync cloud chiffré',
+    'memory compression': 'Windows Memory Compression — compression RAM',
+};
+
+function getProcessDesc(name, command) {
+    const n = name.toLowerCase().replace(/\.exe$/, '');
+    if (PROCESS_DESC[n]) return PROCESS_DESC[n];
+    // Déduire depuis la command line
+    if (command) {
+        const cmd = command.toLowerCase();
+        if (cmd.includes('mixbot')) return 'MixBot — bot de trading crypto';
+        if (cmd.includes('guardian')) return 'Guardian — module protection MixBot';
+        if (cmd.includes('ram-monitor') || cmd.includes('ram_monitor')) return 'RAM Monitor — ce dashboard';
+        if (cmd.includes('supa')) return 'SUPA — système IA personnel';
+        if (cmd.includes('chroma')) return 'ChromaDB — base vectorielle SUPA';
+        if (cmd.includes('rnsd')) return 'Reticulum — daemon réseau mesh chiffré';
+        if (cmd.includes('seed_all')) return 'Reticulum Phantom — seeder P2P';
+        if (cmd.includes('upnp')) return 'Reticulum — keepalive UPnP';
+        if (cmd.includes('server.py')) return 'Serveur Python — API locale';
+        if (cmd.includes('pm2')) return 'PM2 — gestionnaire de processus';
+        if (cmd.includes('node ')) return 'Node.js — script: ' + command.split(/[\\/]/).pop().slice(0, 40);
+        if (cmd.includes('python')) return 'Python — script: ' + command.split(/[\\/]/).pop().slice(0, 40);
+    }
+    return null;
+}
+
 // Patterns suspects
 const SUSPICIOUS_PATTERNS = [
     /miner/i, /xmrig/i, /xmr/i, /monero/i, /coinhive/i,
@@ -175,6 +242,8 @@ async function getSystemData() {
                     cpu: p.cpu.toFixed(1),
                     ramMB: Math.round(p.memRss / 1024),
                     path: p.path || '',
+                    command: p.command || '',
+                    description: getProcessDesc(p.name, p.command || ''),
                     isKnown: isKnownProcess(p.name),
                     isSuspicious: suspiciousReasons.length > 0,
                     suspiciousReasons: suspiciousReasons
