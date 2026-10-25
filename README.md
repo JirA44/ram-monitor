@@ -1,85 +1,59 @@
 # RAM Monitor + Security Watcher
 
-Dashboard web temps réel pour surveiller la RAM, CPU et détecter les processus suspects sous Windows.
+Dashboard local pour observer l’usage de la mémoire et du processeur sous Windows, voir les processus les plus consommateurs et examiner des alertes basées sur des règles.
 
-![Dashboard Preview](https://img.shields.io/badge/Platform-Windows-blue) ![Node.js](https://img.shields.io/badge/Node.js-18+-green) ![License](https://img.shields.io/badge/License-MIT-yellow)
+## À quoi sert-il ?
 
-## Fonctionnalités
+L’application fournit une vue d’ensemble des ressources du PC et des processus en cours dans un navigateur local. Elle peut aider à repérer une application gourmande en mémoire ou à investiguer un processus qui mérite une vérification.
 
-- **RAM en temps réel** - Jauge visuelle + graphique historique
-- **CPU monitoring** - Usage en temps réel
-- **Détail navigateurs** - Brave, Chrome, Firefox, Edge avec RAM par navigateur
-- **Top 20 processus** - Triés par consommation RAM
-- **Détection suspects** - Processus inconnus, noms bizarres, chemins temp
-- **Alertes sécurité** - Notifications RAM critique et processus suspects
-- **Kill process** - Terminer un processus directement depuis le dashboard
-- **WebSocket** - Mise à jour temps réel (3 secondes)
+## Pourquoi l’utiliser ?
 
-## Installation
+Le Gestionnaire des tâches donne des informations utiles, mais un tableau de bord dédié peut afficher l’historique, détailler les navigateurs et regrouper des règles de surveillance. Cela facilite une première investigation quand le PC ralentit ou que la mémoire semble saturée.
 
-```bash
-git clone https://github.com/VOTRE_USER/ram-monitor.git
+Les étiquettes « inconnu » ou « suspect » sont des signaux fondés sur des règles simples, pas une preuve qu’un processus est malveillant. Les faux positifs sont possibles. Examiner le nom, l’emplacement et l’éditeur du programme avant toute action.
+
+## Exemples d’utilisation
+
+- **Comprendre un ralentissement** : ouvrir le dashboard, comparer les jauges RAM/CPU et repérer les processus qui consomment le plus.
+- **Suivre une hausse de mémoire** : laisser le dashboard ouvert et observer l’évolution de l’historique pendant qu’une application est utilisée.
+- **Vérifier une alerte** : lire la raison signalée, confirmer quel logiciel est concerné et rechercher sa provenance avant de décider quoi que ce soit.
+- **Terminer un processus bloqué** : utiliser l’action de fermeture uniquement après avoir identifié le processus et enregistré les travaux ouverts.
+
+Le dashboard ne remplace ni un antivirus ni une analyse de sécurité complète.
+
+## Installation et démarrage
+
+Prérequis : Node.js 18 ou supérieur.
+
+```powershell
+git clone https://github.com/JirA44/ram-monitor.git
 cd ram-monitor
 npm install
+npm start
 ```
 
-## Usage
+Ouvrir ensuite http://localhost:3333 dans le navigateur. Le serveur écoute localement selon la configuration du projet.
+
+Pour démarrer le serveur avec PM2 :
 
 ```bash
-# Démarrer
-npm start
-
-# Ou avec PM2 (recommandé)
 pm2 start server.js --name ram-monitor
 ```
 
-Ouvrir http://localhost:3333
+## Fonctions
 
-## Configuration
+- jauges RAM/CPU et graphique historique ;
+- vue des principaux processus et de l’usage mémoire des navigateurs ;
+- alertes basées sur des processus connus et des motifs configurables ;
+- mise à jour en temps réel par WebSocket ;
+- action de terminaison de processus, à utiliser après vérification.
 
-Modifier dans `server.js`:
+## API locale
 
-```javascript
-const PORT = 3333;  // Port du serveur
+| Endpoint | Méthode | Usage |
+| --- | --- | --- |
+| `/` | GET | interface du dashboard |
+| `/api/stats` | GET | données système au format JSON |
+| `/api/kill/:pid` | POST | demande de terminaison d’un processus |
 
-// Ajouter des processus connus
-const KNOWN_PROCESSES = new Set([
-    'brave', 'chrome', 'firefox', ...
-]);
-
-// Patterns suspects personnalisés
-const SUSPICIOUS_PATTERNS = [
-    /miner/i, /crypto/i, ...
-];
-```
-
-## API
-
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/` | GET | Dashboard HTML |
-| `/api/stats` | GET | Données JSON complètes |
-| `/api/kill/:pid` | POST | Terminer un processus |
-
-## Screenshots
-
-### Dashboard principal
-- Jauges RAM/CPU avec couleurs dynamiques (vert/jaune/rouge)
-- Graphiques historiques (60 points)
-- Liste des navigateurs avec RAM détaillée
-
-### Détection sécurité
-- Processus marqués: ✅ Connu, ⚠️ Inconnu, 🚨 Suspect
-- Raisons détaillées pour chaque alerte
-- Bouton "Terminer" pour les suspects
-
-## Technologies
-
-- Node.js + Express
-- WebSocket (ws)
-- systeminformation
-- HTML/CSS/JS vanilla (pas de framework)
-
-## License
-
-MIT
+Protéger l’accès au serveur et ne pas l’exposer sur Internet sans authentification et contrôle d’accès adaptés.
